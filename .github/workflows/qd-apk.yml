@@ -1,0 +1,78 @@
+name: 抢答版 APK 构建
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  VERSION: "1.2.4"
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate signing key
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore android/anerycoft.jks -storetype JKS \
+            -storepass qiangda123 -keypass qiangda123 \
+            -alias anerycoft -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Qiangda Helper, O=Qiangda, C=CN"
+          printf 'storePassword=qiangda123\nkeyPassword=qiangda123\nkeyAlias=anerycoft\nstoreFile=../anerycoft.jks\n' > android/key.properties
+          ls -l android/key.properties android/anerycoft.jks
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename APKs
+        run: |
+          cd build/app/outputs/flutter-apk
+          for f in app-*-release.apk; do
+            abi=$(echo "$f" | sed -E 's/app-(.*)-release\.apk/\1/')
+            mv "$f" "QiangdaHelper_${VERSION}_${abi}.apk"
+          done
+          ls -l
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: 抢答版 v${{ env.VERSION }}
+          body: |
+            基于 AneryCoft/course_helper 的抢答补丁版。
+
+            - 收到学习通 IM 抢答推送后立即自动抢答（`pptAnswer/stuAnswer`），抢完再弹通知
+            - 应用名「抢答助手」，可与官方 Course Helper 共存
+            - 手机装 `arm64-v8a` 那个就够（2019 年后的手机基本都是 arm64）
+          files: |
+            build/app/outputs/flutter-apk/QiangdaHelper_*_arm64-v8a.apk
+            build/app/outputs/flutter-apk/QiangdaHelper_*_armeabi-v7a.apk
+            build/app/outputs/flutter-apk/QiangdaHelper_*_x86_64.apk
+          fail_on_unmatched_files: false

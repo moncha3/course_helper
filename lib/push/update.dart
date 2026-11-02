@@ -9,8 +9,8 @@ import '../utils/storage.dart';
 class Update {
   static const _skipVersionKey = 'skip_version';
 
-  static const _latestReleaseUrl = 'https://api.github.com/repos/AneryCoft/course_helper/releases/latest';
-  static const _latestReleasePageUrl = 'https://github.com/AneryCoft/course_helper/releases/latest';
+  static const _latestReleaseUrl = 'https://api.github.com/repos/moncha3/course_helper/releases/latest';
+  static const _latestReleasePageUrl = 'https://github.com/moncha3/course_helper/releases/latest';
 
   static Future<void> checkUpdate({bool ignoreSkip = false}) async {
     try {

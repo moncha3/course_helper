@@ -10,6 +10,7 @@ import '../main.dart';
 import '../pages/courses/list.dart';
 import '../models/active.dart';
 import '../platform.dart';
+import '../quick_answer.dart';
 import '../utils/logger.dart';
 import '../utils/time.dart';
 import 'notification.dart';
@@ -154,9 +155,22 @@ class EasemobIM {
       final courseName = (courseInfo?['coursename'] ??
           message.attributes!['em_apns_ext']['em_push_title'] ?? '').toString();
 
+      // 抢答：先抢，再提醒。抢答拼的就是这段时间。
+      QuickAnswerResult? answerResult;
+      if (active.activeType == ActiveType.answer ||
+          activeTypeName.contains('抢答')) {
+        answerResult = await QuickAnswer.claim(
+          activityId: active.id,
+          classId: classId,
+          courseId: courseId,
+        );
+      }
+
       await NotificationService().show(
-        title: '课程活动',
-        body: '收到来自$courseName的$activeTypeName活动',
+        title: answerResult == null ? '课程活动' : '抢答${answerResult.ok ? '成功' : '失败'}',
+        body: answerResult == null
+            ? '收到来自$courseName的$activeTypeName活动'
+            : '$courseName · ${answerResult.description}',
         payload: '${active.id}|$courseId|$classId',
         androidDetails: const AndroidNotificationDetails(
           'course_activity_channel',
@@ -175,7 +189,8 @@ class EasemobIM {
         courseId: courseId,
         classId: classId,
         courseName: courseName,
-        serverTime: message.serverTime
+        serverTime: message.serverTime,
+        answer: answerResult,
       ));
       _scheduleDialog();
     }
@@ -208,7 +223,8 @@ class EasemobIM {
         title: const Text('课程活动'),
         content: SingleChildScrollView(
           child: Text(
-            '收到来自${payload.courseName}的${payload.activeTypeName}活动',
+            '收到来自${payload.courseName}的${payload.activeTypeName}活动'
+            '${payload.answer == null ? '' : '\n\n${payload.answer!.description}'}',
             style: const TextStyle(fontSize: 15),
           ),
         ),
@@ -353,6 +369,7 @@ class _ActivityPayload {
   final String classId;
   final String courseName;
   final int serverTime;
+  final QuickAnswerResult? answer;
 
   _ActivityPayload({
     required this.active,
@@ -361,6 +378,7 @@ class _ActivityPayload {
     required this.classId,
     required this.courseName,
     required this.serverTime,
+    this.answer,
   });
 }
 
